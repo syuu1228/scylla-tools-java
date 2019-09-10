@@ -29,6 +29,7 @@ Usage: install.sh [options]
 Options:
   --root /path/to/root     alternative install root (default /)
   --prefix /prefix         directory prefix (default /usr)
+  --nonroot                install Scylla without required root priviledge
   --pkg package            specify build package (tools/tools-core)
   --help                   this helpful message
 EOF
@@ -36,7 +37,7 @@ EOF
 }
 
 root=/
-prefix=/opt/scylladb/
+nonroot=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -52,6 +53,10 @@ while [ $# -gt 0 ]; do
             pkg="$2"
             shift 2
             ;;
+        "--nonroot")
+            nonroot=true
+            shift 1
+            ;;
         "--help")
             shift 1
 	    print_usage
@@ -66,15 +71,29 @@ if [ -n "$pkg" ] && [ "$pkg" != "tools" -a "$pkg" != "tools-core" ]; then
     exit 1
 fi
 
+if [ -z "$prefix" ]; then
+    if $nonroot; then
+        prefix=~/scylladb
+    else
+        prefix=/opt/scylladb
+    fi
+fi
+
 scylla_version=$(cat SCYLLA-VERSION-FILE)
 scylla_release=$(cat SCYLLA-RELEASE-FILE)
 
-rprefix="$root/$prefix"
-retc="$root/etc"
-rusr="$root/usr"
+rprefix=$(realpath -m "$root/$prefix")
+if ! $nonroot; then
+    retc="$root/etc"
+    rusr="$root/usr"
+else
+    retc="$rprefix/etc"
+fi
 
 install -d -m755 "$rprefix"/tools/bin
-install -d -m755 "$rusr"/bin
+if ! $nonroot; then
+    install -d -m755 "$rusr"/bin
+fi
 
 if [ -z "$pkg" ] || [ "$pkg" = "tools-core" ]; then
     install -d -m755 "$retc"/scylla/cassandra
@@ -92,8 +111,16 @@ if [ -z "$pkg" ] || [ "$pkg" = "tools-core" ]; then
     for i in tools/bin/{filter_cassandra_attributes.py,cassandra_attributes.py} bin/scylla-sstableloader; do
         bn=$(basename $i)
         install -m755 $i "$rprefix"/tools/bin
-        ln -srf "$rprefix"/tools/bin/$bn "$rusr"/bin/$bn
+        if ! $nonroot; then
+            ln -srf "$rprefix"/tools/bin/$bn "$rusr"/bin/$bn
+        fi
     done
+    if $nonroot; then
+        ln -srf "$rprefix"/tools/cassandra.in.sh ~/.cassandra.in.sh
+        sed -i -e "s#/var/lib/scylla#$rprefix#g" "$rprefix"/tools/cassandra.in.sh
+        sed -i -e "s#/etc/scylla#$retc/scylla#g" "$rprefix"/tools/cassandra.in.sh
+        sed -i -e "s#/opt/scylladb/tools#$rprefix/tools#g" "$rprefix"/tools/cassandra.in.sh
+    fi
 fi
 
 if [ -z "$pkg" ] || [ "$pkg" = "tools" ]; then
@@ -104,6 +131,8 @@ if [ -z "$pkg" ] || [ "$pkg" = "tools" ]; then
     for i in bin/{nodetool,sstableloader,cqlsh,cqlsh.py} tools/bin/{cassandra-stress,cassandra-stressd,sstabledump,sstablelevelreset,sstablemetadata,sstablerepairedset}; do
         bn=$(basename $i)
         install -m755 $i "$rprefix"/tools/bin
-        ln -srf "$rprefix"/tools/bin/$bn "$rusr"/bin/$bn
+        if ! $nonroot; then
+            ln -srf "$rprefix"/tools/bin/$bn "$rusr"/bin/$bn
+        fi
     done
 fi
