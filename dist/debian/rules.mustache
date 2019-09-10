@@ -8,21 +8,8 @@ override_dh_auto_clean:
 
 override_dh_auto_install:
 	dh_auto_install
-	mkdir -p $(CURDIR)/debian/{{product}}-tools/opt/scylladb/tools/pylib
-	cp -r $(CURDIR)/pylib/cqlshlib $(CURDIR)/debian/{{product}}-tools/opt/scylladb/tools/pylib
-
-	dh_link -p {{product}}-tools-core opt/scylladb/tools/lib/apache-cassandra-$(VERSION).jar \
-		opt/scylladb/tools/lib/apache-cassandra.jar
-
-# symlinks for scylla-tools-core
-	for i in filter_cassandra_attributes.py cassandra_attributes.py scylla-sstableloader; do \
-		dh_link -p {{product}}-tools-core opt/scylladb/tools/bin/$$i usr/bin/$$i; \
-	done
-
-# symlinks for scylla-tools
-	for i in nodetool sstableloader cqlsh cqlsh.py cassandra-stress cassandra-stressd sstabledump sstablelevelreset sstablemetadata sstablerepairedset; do \
-		dh_link -p {{product}}-tools opt/scylladb/tools/bin/$$i usr/bin/$$i; \
-	done
+	./install.sh --root "$(CURDIR)/debian/{{product}}-tools" --pkg "tools"
+	./install.sh --root "$(CURDIR)/debian/{{product}}-tools-core" --pkg "tools-core"
 
 override_dh_makeshlibs:
 
