@@ -20,7 +20,9 @@
 . /etc/os-release
 
 if [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
-    apt -y install openjdk-8-jdk-headless ant ant-optional python3
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get -y install openjdk-11-jdk-headless openjdk-8-jdk-headless ant ant-optional python3 git devscripts debhelper fakeroot dpkg-dev rpm sudo
 elif [ "$ID" = "fedora" ] || [ "$ID" = "centos" ]; then
-    dnf install -y --setopt=install_weak_deps=False ant java-1.8.0-openjdk-devel python3 ant-junit fakeroot
+    dnf install -y --setopt=install_weak_deps=False ant java-11-openjdk-headless java-1.8.0-openjdk-devel python3 ant-junit fakeroot git devscripts debhelper fakeroot dpkg-dev rpm-build sudo
 fi

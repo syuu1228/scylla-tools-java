@@ -1,0 +1,15 @@
+on: push
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build RPM
+        run: |
+          ./reloc/build_reloc.sh
+          ./reloc/build_rpm.sh --reloc-pkg build/scylla-tools-$(./SCYLLA-VERSION-GEN).noarch.tar.gz
+
+      - name: Build DEB
+        run: |
+          ./reloc/build_reloc.sh
+          ./reloc/build_deb.sh --reloc-pkg build/scylla-tools-$(./SCYLLA-VERSION-GEN).noarch.tar.gz

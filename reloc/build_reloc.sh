@@ -33,12 +33,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-VERSION=$(./SCYLLA-VERSION-GEN ${VERSION_OVERRIDE:+ --version "$VERSION_OVERRIDE"})
-# the former command should generate build/SCYLLA-PRODUCT-FILE and some other version
-# related files
-PRODUCT=`cat build/SCYLLA-PRODUCT-FILE`
-DEST="build/$PRODUCT-tools-$VERSION.noarch.tar.gz"
-
 is_redhat_variant() {
     [ -f /etc/redhat-release ]
 }
@@ -61,18 +55,44 @@ if [ -f "$DEST" ]; then
 fi
 
 if [ -z "$NODEPS" ]; then
-    sudo ./install-dependencies.sh
+    if [ $EUID -ne 0 ]; then
+        SUDO=sudo
+    fi
+    $SUDO ./install-dependencies.sh
 fi
 
+VERSION=$(./SCYLLA-VERSION-GEN ${VERSION_OVERRIDE:+ --version "$VERSION_OVERRIDE"})
+# the former command should generate build/SCYLLA-PRODUCT-FILE and some other version
+# related files
+PRODUCT=`cat build/SCYLLA-PRODUCT-FILE`
+DEST="build/$PRODUCT-tools-$VERSION.noarch.tar.gz"
+
 printf "version=%s" $VERSION > build.properties
+
+DEB_ARCH=`dpkg --print-architecture`
 
 # Our ant build.xml requires JAVA8_HOME to be set. In case it wasn't (e.g.,
 # dbuild sets it), let's try some common possibilities
 if [ -z "$JAVA8_HOME" ]; then
-    for i in /usr/lib/jvm/java-1.8.0
+    for i in /usr/lib/jvm/java-1.8.0 /usr/lib/jvm/java-1.8.0-openjdk-"$DEB_ARCH"
     do
         if [ -e "$i" ]; then
             export JAVA8_HOME="$i"
+            break
+        fi
+    done
+fi
+
+# On Fedora, default JDK may mistakenly configured to OpenJDK8 by package
+# manager for some reason.
+# It will breaks ant build since we call --release option which is not
+# available OpenJDK8.
+# To avoid build failure, we should specify JAVA_HOME to OpenJDK11.
+if [ -z "$JAVA_HOME" ]; then
+    for i in /usr/lib/jvm/java-11 /usr/lib/jvm/java-11-openjdk-"$DEB_ARCH"
+    do
+        if [ -e "$i" ]; then
+            export JAVA_HOME="$i"
             break
         fi
     done
